@@ -1,7 +1,4 @@
 require 'erb'
-require 'ostruct'
-require 'tmpdir'
-
 require 'escaping'
 require 'tempdir'
 
@@ -101,29 +98,27 @@ module RTeX
     
     # Basic processing
     def process_pdf_from(input, &file_handler)
-      Tempdir.open(@options[:tempdir]) do |tempdir|
-        prepare input
-        if generating?
-          preprocess! if preprocessing?
-          process!
-          verify!
-        end
-        if file_handler
-          yield full_path_in(tempdir.path)
-        else
-          result_as_string
-        end
+      prepare input
+      if generating?
+        preprocess! if preprocessing?
+        process!
+        verify!
+      end
+      if file_handler
+        yield result_file
+      else
+        result_as_string
       end
     end
     
     def process!
-      unless `#{processor} --interaction=nonstopmode '#{source_file}' #{@options[:shell_redirect]}`
+      unless `#{processor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
         raise GenerationError, "Could not generate PDF using #{processor}"      
       end
     end
     
     def preprocess!
-      unless `#{preprocessor} --interaction=nonstopmode '#{source_file}' #{@options[:shell_redirect]}`
+      unless `#{preprocessor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
         raise GenerationError, "Could not preprocess using #{preprocessor}"      
       end
     end
@@ -144,8 +139,12 @@ module RTeX
       @result_file ||= file(@options[:tex] ? :tex : :pdf)
     end
     
+    def tempdir
+      @options[:tempdir]
+    end
+    
     def file(extension)
-      "document.#{extension}"
+      File.join(tempdir, "document.#{extension}")
     end
     
     def generating?
@@ -154,7 +153,7 @@ module RTeX
     
     def verify!
       unless File.exists?(result_file)
-        raise GenerationError, "Could not find result PDF #{result_file} after generation.\nCheck #{File.expand_path(log_file)}"
+        raise GenerationError, "Could not find result PDF #{result_file} after generation.\nCheck #{log_file}"
       end
     end
     
@@ -164,10 +163,6 @@ module RTeX
     
     def result_as_string
       File.open(result_file, 'rb') { |f| f.read }
-    end
-    
-    def full_path_in(directory)
-      File.expand_path(File.join(directory, result_file))
     end
     
   end

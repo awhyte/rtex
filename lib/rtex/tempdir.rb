@@ -1,22 +1,24 @@
 require 'fileutils'
+require 'tmpdir'
 
 module RTeX
   
   class Tempdir #:nodoc:
         
-    def self.open(parent_path=RTeX::Document.options[:tempdir])
-      tempdir = new(parent_path)
+    def self.open(parent_path=Dir.tmpdir, basename='rtex')
+      tempdir = new(parent_path, basename)
       FileUtils.mkdir_p tempdir.path
-      result = Dir.chdir(tempdir.path) do
-        yield tempdir
-      end
+      
+      # Yield the path and wait for the block to finish
+      result = yield tempdir.path
+      
       # We don't remove the temporary directory when exceptions occur,
       # so that the source of the exception can be dubbed (logfile kept)
       tempdir.remove!
       result
     end
     
-    def initialize(parent_path, basename='rtex')
+    def initialize(parent_path=Dir.tmpdir, basename='rtex')
       @parent_path = parent_path
       @basename = basename
       @removed = false
