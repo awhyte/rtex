@@ -22,10 +22,8 @@ module RTeX
         :preprocessor => 'latex',
         :preprocess => false,
         :processor => 'pdflatex',
-        # 
         :shell_redirect => nil,
-        # Temporary Directory
-        :tempdir => Dir.tmpdir
+        :tempdir => Dir.getwd # Current directory unless otherwise set
       }
     end
         
@@ -100,7 +98,7 @@ module RTeX
     def process_pdf_from(input, &file_handler)
       prepare input
       if generating?
-        preprocess! if preprocessing?
+        preprocess_count.times { preprocess! }
         process!
         verify!
       end
@@ -124,7 +122,18 @@ module RTeX
     end
     
     def preprocessing?
-      @options[:preprocess]
+      preprocess_count > 0
+    end
+    
+    def preprocess_count
+      case @options[:preprocess]
+        when Numeric
+          @options[:preprocess].to_i
+        when true
+          1
+        else
+          0
+      end
     end
         
     def source_file
