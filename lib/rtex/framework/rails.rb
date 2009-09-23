@@ -153,6 +153,51 @@ module RTeX
           render(:inline => File.read(other_file))
         end
         
+        # Include an image file into the current LaTeX document.
+        #
+        # For example,
+        #
+        #   \includegraphics{<%= graphics_file("some file.png") -%>}
+        #
+        # will copy "public/images/some file.png" to a the current RTeX 
+        # temporary directory (with a LaTeX-safe filename) and reference it in 
+        # the document like this:
+        #
+        #   \includegraphics{/tmp/rtex/rtex-random-number/image-file.png}
+        #
+        def graphics_file(file, reference_original_file=false)
+          source = Pathname.new file
+          source = Pathname.new(ActionView::Helpers::ASSETS_DIR) + "images" + source unless source.absolute?
+          
+          if reference_original_file
+            source.to_s
+          else
+            destination = Pathname.new(@rtex_dir) + latex_safe_filename(source.basename)
+            FileUtils.copy source, destination
+            destination.to_s
+          end
+        end
+        
+        # Save the supplied image data to the RTeX temporary directory and 
+        # return the filename for inclusion in the current document.
+        #
+        #   \includegraphics{<%= graphics_data(object.to_png) -%>}
+        #
+        def graphics_data(data)
+          destination = Pathname.new(@rtex_dir) + latex_safe_filename(filename)
+          File.open(destination, "w") { |f| f.write data }
+          dst.to_s
+        end
+        
+      private
+        
+        def latex_safe_filename(input)
+          # Replace non-ASCII characters
+          input = ActiveSupport::Inflector.transliterate(input.to_s).to_s
+          # Replace non-LaTeX-friendly characters with a dash
+          input.gsub(/[^a-z0-9\-_\+\.]+/i, '-')
+        end
+        
       end
     end
   end
