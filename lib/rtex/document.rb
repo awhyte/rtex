@@ -23,6 +23,7 @@ module RTeX
         :preprocess => false,
         :processor => 'pdflatex',
         :shell_redirect => nil,
+        :tex_inputs => nil,
         :tempdir => Dir.getwd # Current directory unless otherwise set
       }
     end
@@ -110,13 +111,13 @@ module RTeX
     end
     
     def process!
-      unless `#{processor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
+      unless `#{environment_vars}#{tex_inputs} #{processor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
         raise GenerationError, "Could not generate PDF using #{processor}"      
       end
     end
     
     def preprocess!
-      unless `#{preprocessor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
+      unless `#{environment_vars}#{preprocessor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
         raise GenerationError, "Could not preprocess using #{preprocessor}"      
       end
     end
@@ -135,7 +136,27 @@ module RTeX
           0
       end
     end
-        
+    
+    # Compile list of extra directories to search for LaTeX packages, using
+    # the file or array of files held in the :tex_inputs option.
+    #
+    def tex_inputs
+      if inputs = @options[:tex_inputs]
+        inputs = [inputs].flatten.select { |i| File.exists? i }
+        "TEXINPUTS='#{inputs.join(':')}:'"
+      else
+        nil
+      end
+    end
+    
+    # Produce a list of environment variables to prefix the process and 
+    # preprocess commands.
+    #
+    def environment_vars
+      list = [tex_inputs].compact
+      list.empty? ? "" : list.join(" ") + " "
+    end
+    
     def source_file
       @source_file ||= file(:tex)
     end

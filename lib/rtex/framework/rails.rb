@@ -94,6 +94,11 @@ module RTeX
               :filename => (options.delete(:filename) || nil),
               :type => template.mime_type.to_s }
             
+            # Document options
+            rtex_options = options.merge(:tempdir => dir).reverse_merge(
+              :processed => true,
+              :tex_inputs => File.join(RAILS_ROOT,'lib','latex') )
+            
             # Content type requested
             content_type = template.content_type.to_sym
             
@@ -102,7 +107,7 @@ module RTeX
               when :tex
                 send_data latex, send_options.merge(:length => latex.length)
               when :pdf
-                pdf = RTeX::Document.new(latex, options.merge(:processed => true, :tempdir => dir)).to_pdf
+                pdf = RTeX::Document.new(latex, rtex_options).to_pdf
                 send_data pdf, send_options.merge(:length => pdf.length)
               else
                 raise "RTeX: unknown content type requested: #{content_type}"
