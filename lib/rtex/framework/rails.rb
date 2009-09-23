@@ -15,39 +15,120 @@ module RTeX
         ActionView::Base.send(:include, HelperMethods)
       end
       
-      class TemplateHandler < ::ActionView::TemplateHandlers::ERB
-      end
       
-      module ControllerMethods
-        
-        def rtex(output, options, *args, &block)
-          Thread.current[:_rendering_rtex] = true
-          send_options = { 
-            :disposition => (options.delete(:disposition) || 'inline'),
-            :url_based_filename => true,
-            :filename => (options.delete(:filename) || nil) }
-        
-          RTeX::Tempdir.open do |dir|
-            # Make directory accessible to view
-            @rtex_dir = dir
-            # Render view into LaTeX string
-            latex = render(options, *args, &block)
-            
-            case output
-              when :latex
-                send_data latex, send_options.merge(:type => 'text/x-tex', :length => latex.length)
-              when :pdf
-                pdf = RTeX::Document.new(latex, options.merge(:processed => true, :tempdir => dir)).to_pdf
-                send_data pdf, send_options.merge(:type => 'application/pdf', :length => pdf.length)
-            end
-            
-          end
-          
+      class TemplateHandler < ::ActionView::TemplateHandlers::ERB
+        # Due to significant changes in ActionView over the lifespan of Rails,
+        # tagging compiled templates to set a thread local variable flag seems
+        # to be the least brittle approach.
+        def compile(template)
+          # Insert assignment, but not before the #coding: line, if present
+          super.sub(/^(?!#)/m, "Thread.current[:_rendering_rtex] = true;\n")
         end
       end
       
+      
+      module ControllerMethods
+        
+        def self.included(base) #:nodoc:
+          base.alias_method_chain :render, :rtex
+        end
+        
+        # Extends the base +ActionController#render+ method by checking whether
+        # the template is RTeX-capable and creating an RTeX::Document in that 
+        # case.
+        #
+        # If you have view templates saved, for example, as "show.html.erb" and 
+        # "show.pdf.rtex" in an ItemsController, one could write the controller
+        # action like this:
+        #
+        #   def show
+        #     # set up instance variables
+        #     # ...
+        #     respond_to do |format|
+        #       format.html
+        #       format.pdf { render :filename => "Item Information.pdf" }
+        #     end
+        #   end
+        #
+        # As well as the options available to a new RTeX::Document, the 
+        # following may be supplied here:
+        #
+        # [+:disposition+] 'inline' (default) or 'attachment'
+        # [+:filename+] +nil+ (default) results in the final part of the 
+        #               request URL being used.
+        #
+        # To see the underlying LaTeX code that generated the PDF, create 
+        # another view called "show.tex.rtex" which includes the single line
+        #
+        #   <%= include_template_from "items/show.pdf.rtex" -%>
+        #
+        # and include the following in the controller action
+        # 
+        #   format.tex { render :filename => "item_information_source.tex" }
+        #
+        # This may be helpful during debugging or for saving pre-compiled parts
+        # of LaTeX documents for later processing into PDFs.
+        #
+        def render_with_rtex(options=nil, extra_options={}, &block)
+          if conditions_for_rtex(options)
+            render_rtex(default_template, options, extra_options, &block)
+          else
+            render_without_rtex(options, extra_options, &block)
+          end
+        end
+        
+      private
+        
+        def render_rtex(template, options={}, extra_options={}, &block)
+          RTeX::Tempdir.open do |dir|
+            # Make LaTeX temporary directory accessible to view
+            @rtex_dir = dir
+            
+            # Render view into LaTeX document string
+            latex = render_without_rtex(options, extra_options, &block)
+            
+            # HTTP response options
+            send_options = { 
+              :disposition => (options.delete(:disposition) || 'inline'),
+              :url_based_filename => true,
+              :filename => (options.delete(:filename) || nil),
+              :type => template.mime_type.to_s }
+            
+            # Content type requested
+            content_type = template.content_type.to_sym
+            
+            # Send appropriate data to client
+            case content_type
+              when :tex
+                send_data latex, send_options.merge(:length => latex.length)
+              when :pdf
+                pdf = RTeX::Document.new(latex, options.merge(:processed => true, :tempdir => dir)).to_pdf
+                send_data pdf, send_options.merge(:length => pdf.length)
+              else
+                raise "RTeX: unknown content type requested: #{content_type}"
+            end
+          end
+        end
+        
+        def conditions_for_rtex(options)
+          begin
+            # Do not override the +:text+ rendering, because send_data uses this
+            !options[:text] && 
+            # Check whether the default template is one managed by the 
+            # RTeX::Framework::Rails::TemplateHandler
+            :rtex == default_template.extension.to_sym 
+          rescue
+            false
+          end
+        end
+      end
+      
+      
       module HelperMethods
-        # Similar to h()
+      
+        # Make the supplied text safe for the LaTeX processor, in the same way 
+        # that h() works for HTML documents.
+        #
         def latex_escape(*args)
           # Since Rails' I18n implementation aliases l() to localize(), LaTeX
           # escaping should only be done if RTeX is doing the rendering.
@@ -59,8 +140,20 @@ module RTeX
           end
         end
         alias :l :latex_escape
+        
+        # Obtain the temporary directory RTeX is currently using
+        attr_reader :rtex_dir
+        
+        # Copy the contents of another template into the current one, like 
+        # rendering a partial but without have to add an underscore to the 
+        # filename.
+        #
+        def include_template_from(from)
+          other_file = @template.view_paths.find_template(from).relative_path
+          render(:inline => File.read(other_file))
+        end
+        
       end
-      
     end
   end
 end
