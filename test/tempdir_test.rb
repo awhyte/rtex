@@ -7,59 +7,37 @@ class TempdirTest < Test::Unit::TestCase
     setup do
       change_tmpdir_for_testing
     end
-  
-    should "change directory" do
-      old_location = Dir.pwd
-      block_location = nil
-      RTeX::Tempdir.open do
-        assert_not_equal old_location, Dir.pwd
-        block_location = Dir.pwd
-      end
-      assert_equal old_location, Dir.pwd
-      assert !File.exists?(block_location)
-    end
-  
+    
     should "use a 'rtex' name prefix" do
-      RTeX::Tempdir.open do
-        assert_equal 'rtex-', File.basename(Dir.pwd)[0,5]
+      RTeX::Tempdir.open do |tempdir|
+        assert_equal 'rtex-', File.basename(tempdir.path)[0,5]
       end
     end
-  
+    
     should "remove the directory after use if no exception occurs by default" do
-      path = nil
-      RTeX::Tempdir.open do
-        path = Dir.pwd
-        assert File.exists?(path)
+      tempdir = nil
+      RTeX::Tempdir.open do |tempdir|
+        assert File.exists?(tempdir.path) # Check the temp dir exists
       end
-      assert !File.exists?(path)
+      assert !File.exists?(tempdir.path) # Check the temp dir has been removed
     end
-  
+    
     should "return the result of the last statement if automatically removing the directory" do
       result = RTeX::Tempdir.open do
         :last
       end
-      assert_equal :last, :last
+      assert_equal result, :last
     end
-  
-    should "return the result of the last statment if not automatically removing the directory" do
-      tempdir = nil # to capture value
-      result = RTeX::Tempdir.open do |tempdir|
-        :last
-      end
-      tempdir.remove!
-      assert_equal :last, :last
-    end
-  
+    
     should "not remove the directory after use if an exception occurs" do
-      path = nil
+      tempdir = nil
       assert_raises RuntimeError do
-        RTeX::Tempdir.open do
-          path = Dir.pwd
-          assert File.directory?(path)
+        RTeX::Tempdir.open do |tempdir|
+          assert File.directory?(tempdir.path)
           raise "Test exception!"
         end
       end
-      assert File.directory?(path)
+      assert File.directory?(tempdir.path)
     end
   
   end

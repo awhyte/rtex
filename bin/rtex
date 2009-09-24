@@ -63,12 +63,14 @@ if options[:filter] && !options[:layout]
   options[:layout] = RTeX.basic_layout
 end
 
-document = RTeX::Document.new(ARGF.read, options)
-location = File.expand_path(options[:outfile]) rescue nil
-document.to_pdf(nil) do |filename|
-  if location
-    FileUtils.move filename, location
-  else
-    STDOUT.print File.read(filename)
+RTeX::Document.create(ARGF.read, options) do |document|
+  document.to_pdf do |filename|
+    begin
+      location = File.expand_path options[:outfile]
+      FileUtils.move filename, location
+    rescue
+      STDOUT.print File.read(filename)
+    end
   end
 end
+

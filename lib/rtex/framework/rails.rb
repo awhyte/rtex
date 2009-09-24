@@ -82,7 +82,7 @@ module RTeX
         def render_rtex(template, options={}, extra_options={}, &block)
           RTeX::Tempdir.open do |dir|
             # Make LaTeX temporary directory accessible to view
-            @rtex_dir = dir
+            @rtex_dir = dir.to_s
             
             # Render view into LaTeX document string
             latex = render_without_rtex(options, extra_options, &block)
