@@ -11,14 +11,9 @@ opts = OptionParser.new do |opts|
   
   opts.banner = [
     "RTeX v#{RTeX::Version::STRING} (c) 2006-2007 Bruce Williams, Wiebe Cazemier",
-    "USAGE: rtex [OPTIONS]"
+    "Usage: rtex [OPTION...] FILE...\n\n"
   ].join("\n")
-  
-  opts.on_tail('-h', '--help', "Show this message") do
-    STDERR.puts opts
-    exit
-  end
-  
+    
   opts.on('-l LAYOUT', '--layout LAYOUT', 'Path to layout file (use <%= yield %>)') do |layout|
     if File.exists?(layout)
       options[:layout] = File.read(layout)
@@ -59,6 +54,13 @@ opts = OptionParser.new do |opts|
     options[:processor] = processor
   end
   
+  opts.on('-h', '--help', "Show this message\n")
+  opts.separator "With no FILEs, or when FILE is -, read from standard input."
+  
+  opts.on_tail do
+    STDERR.puts opts
+    exit
+  end
 end
 opts.parse!(ARGV)
 
