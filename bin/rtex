@@ -41,12 +41,12 @@ opts = OptionParser.new do |opts|
       STDERR.puts "Could not find application at #{path}"
       exit 1
     end
-    plugin_path = File.join(plugins, 'rtex')
-    FileUtils.cp_r(File.dirname(__FILE__) << '/..', plugin_path)
-    %w(Rakefile Manifest.txt bin tasks).each do |prune|
-      FileUtils.rm_rf(File.join(plugin_path, prune)) rescue nil
-    end
-    STDERR.puts "Installed at #{plugin_path}"
+    
+    dest_dir = FileUtils.mkdir_p(File.join(plugins, 'rtex'))
+    plugin_file = File.join(File.dirname(__FILE__), "..", "rails", "init.rb")
+    FileUtils.cp plugin_file, dest_dir
+    
+    STDERR.puts "Installed at #{dest_dir}"
     exit
   end
   
