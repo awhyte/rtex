@@ -55,6 +55,10 @@ opts = OptionParser.new do |opts|
     exit
   end
   
+  opts.on('-p PROCESSOR', '--processor PROCESSOR', "Specify the LaTeX processor (default: #{RTeX::Document.options[:processor]})") do |processor|
+    options[:processor] = processor
+  end
+  
 end
 opts.parse!(ARGV)
 
