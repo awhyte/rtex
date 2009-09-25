@@ -51,6 +51,8 @@ module RTeX
     # [+:tmpdir+] Location of temporary directory (default: +Dir.getwd+)
     # [+:shell_redirect+] Option redirection for shell output, 
     #                     e.g. +"> /dev/null 2>&1"+ (default: +nil+).
+    # [+:command_prefix+] String (or array) of environment variable settings
+    #                     for the +:processor+ and +:preprocessor+ commands.
     #
     def initialize(content, options={})
       @options = self.class.options.merge(options)
@@ -115,9 +117,12 @@ module RTeX
         :processor => 'pdflatex',
         :shell_redirect => nil,
         :tex_inputs => nil,
+        :command_prefix => nil,
         :tempdir => Dir.getwd # Current directory unless otherwise set
       }
     end
+    
+    attr_reader :options
     
   private
     
@@ -155,16 +160,20 @@ module RTeX
       File.open(source_file, 'wb') { |f| f.puts input }
     end
     
+    def command(executable)
+      "#{environment_vars}#{executable} --output-directory='#{tempdir}' --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}"
+    end
+    
     # Run LaTeX pre-processing step on the source file
     def preprocess!
-      unless `#{environment_vars}#{preprocessor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
+      unless `#{command(preprocessor)}`
         raise GenerationError, "Could not preprocess using #{preprocessor}"      
       end
     end
     
     # Run LaTeX output generation step on the source file
     def process!
-      unless `#{environment_vars}#{tex_inputs} #{processor} --output-directory=#{tempdir} --interaction=nonstopmode '#{File.basename(source_file)}' #{@options[:shell_redirect]}`
+      unless `#{command(processor)}`
         raise GenerationError, "Could not generate PDF using #{processor}"      
       end
     end
@@ -197,6 +206,14 @@ module RTeX
       end
     end
     
+    # Produce a list of environment variables to prefix the process and 
+    # preprocess commands.
+    #
+    def environment_vars
+      list = [tex_inputs, command_prefix].compact
+      list.empty? ? "" : list.join(" ") + " "
+    end
+    
     # Compile list of extra directories to search for LaTeX packages, using
     # the file or array of files held in the :tex_inputs option.
     #
@@ -209,12 +226,24 @@ module RTeX
       end
     end
     
-    # Produce a list of environment variables to prefix the process and 
-    # preprocess commands.
+    # Occasionally it is useful to be able to prefix the LaTeX commands with 
+    # extra environment variables, for example the +rlatex+ program,
     #
-    def environment_vars
-      list = [tex_inputs].compact
-      list.empty? ? "" : list.join(" ") + " "
+    #   LATEXPRG=pdflatex rlatex [FILE...]
+    #
+    # which runs the command +pdflatex+ repeatedly until LaTeX is satisfied all
+    # cross-references etc. are stable.
+    #
+    # To achieve this with RTeX, use 
+    #
+    #   :processor => "rlatex", :command_prefix => "LATEXPRG=pdflatex"
+    #
+    def command_prefix
+      if prefix = @options[:command_prefix]
+        prefix = [prefix].flatten.join(" ")
+      else
+        nil
+      end
     end
     
     def source_file
