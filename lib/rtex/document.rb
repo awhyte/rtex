@@ -110,6 +110,10 @@ module RTeX
       ENV['PATH']
     end
     
+    def self.available_options
+      options.keys
+    end
+    
     def self.options #:nodoc:
       @options ||= {
         :preprocessor => 'latex',
