@@ -1,7 +1,7 @@
 require 'tempfile'
 
 module RTeX
-  module Framework #:nodoc:   
+  module Framework #:nodoc:
     module Rails #:nodoc:
       
       def self.available_options
@@ -27,7 +27,7 @@ module RTeX
           # Insert assignment, but not before the #coding: line, if present
           super.sub(/^(?!#)/m, "Thread.current[:_rendering_rtex] = true;\n")
         end
-      end      
+      end
       
       module HelperMethods
       
@@ -135,7 +135,7 @@ module ActionController
     # This may be helpful during debugging or for saving pre-compiled parts
     # of LaTeX documents for later processing into PDFs.
     #
-    def render_with_rtex(options = nil, extra_options = {}, &block)  
+    def render_with_rtex(options = nil, extra_options = {}, &block)
       @_render_options = (options || {}).slice\
         *(RTeX::Document.available_options + RTeX::Framework::Rails.available_options)
       

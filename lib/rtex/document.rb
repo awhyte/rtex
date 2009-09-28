@@ -171,14 +171,14 @@ module RTeX
     # Run LaTeX pre-processing step on the source file
     def preprocess!
       unless `#{command(preprocessor)}`
-        raise GenerationError, "Could not preprocess using #{preprocessor}"      
+        raise GenerationError, "Could not preprocess using #{preprocessor}"
       end
     end
     
     # Run LaTeX output generation step on the source file
     def process!
       unless `#{command(processor)}`
-        raise GenerationError, "Could not generate PDF using #{processor}"      
+        raise GenerationError, "Could not generate PDF using #{processor}"
       end
     end
     
